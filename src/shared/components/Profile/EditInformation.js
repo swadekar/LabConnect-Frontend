@@ -1,11 +1,42 @@
 import React from "react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useForm, SubmitHandler } from "react-hook-form";
 import Input from "../../../staff/components/Input";
 
-const EditInformation = ({className, id, name, department, researchCenter, description, email, role, image }) => {
-  const submitHandler = (data) => {
+interface EditInformationProps {
+  className?: string;
+  id: string;
+  name: string;
+  department: string;
+  researchCenter: string;
+  description: string;
+  email: string;
+  role: string;
+  image?: string;
+}
+
+interface FormData {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  description: string;
+  department: string;
+  researchCenter: string;
+}
+
+const EditInformation: React.FC<EditInformationProps> = ({
+  className,
+  id,
+  name,
+  department,
+  researchCenter,
+  description,
+  email,
+  role,
+  image,
+}) => {
+  const submitHandler: SubmitHandler<FormData> = (data) => {
     console.log(data);
   };
 
@@ -13,7 +44,7 @@ const EditInformation = ({className, id, name, department, researchCenter, descr
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({
+  } = useForm<FormData>({
     defaultValues: {
       id: id,
       name: name,
@@ -21,11 +52,11 @@ const EditInformation = ({className, id, name, department, researchCenter, descr
       role: role,
       description,
       department,
-      researchCenter
+      researchCenter,
     },
   });
 
-  var forms = (
+  const forms = (
     <form
       onSubmit={handleSubmit((data) => {
         submitHandler(data);
@@ -61,7 +92,6 @@ const EditInformation = ({className, id, name, department, researchCenter, descr
         <h3 className="text-lg">Research Center: {researchCenter}</h3>
       </div>
       {forms}
-      
     </div>
   );
 };
