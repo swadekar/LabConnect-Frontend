@@ -1,7 +1,17 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-const OpportunityActionCard = ({
+interface OpportunityActionCardProps {
+  editPath: string;
+  title: string;
+  body: string;
+  id: string;
+  activeStatus: boolean;
+  changeActiveStatus: (id: string, activeStatus: boolean) => void;
+  deleteOpp: (id: string) => void;
+}
+
+const OpportunityActionCard: React.FC<OpportunityActionCardProps> = ({
   editPath,
   title,
   body,
@@ -10,9 +20,7 @@ const OpportunityActionCard = ({
   changeActiveStatus,
   deleteOpp,
 }) => {
-  if (title.length > 100) {
-    title = title.slice(0, 150) + " ...";
-  }
+  const truncatedTitle = title.length > 100 ? `${title.slice(0, 150)} ...` : title;
 
   const color = activeStatus ? "btn-primary" : "btn-secondary";
 
@@ -26,17 +34,14 @@ const OpportunityActionCard = ({
             title.length > 100 ? "text-sm" : "text-lg font-bold"
           }  p-0 m-0`}
         >
-          {title}
+          {truncatedTitle}
         </h2>
         <p className="card2-body">{body}</p>
         <div className="card-actions justify-start">
-          
-          
           {/* Edit button */}
           <Link to={editPath}>
             <button className="btn-sm btn btn-primary">Edit</button>
           </Link>
-
 
           {/* Deactivate Button */}
           <button
@@ -50,7 +55,7 @@ const OpportunityActionCard = ({
 
           {/* Delete Button */}
           <button
-            className={"btn-sm btn btn-primary"}
+            className="btn-sm btn btn-primary"
             onClick={() => {
               deleteOpp(id);
             }}
