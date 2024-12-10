@@ -1,108 +1,86 @@
-import React, { useState } from "react";
-import JobDetails from "../components/JobDetails";
-import { useParams } from "react-router";
-import { useEffect } from "react";
-import { set } from "react-hook-form";
+import React from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import JobDetails from '../components/JobDetails';
 
-const DUMMY_DATA = [
-  {
-    title: "Software Engineer",
-    description: "Lorem Ipsum",
-    author: "John Smith",
-    id: "u1",
-    authorProfile:
-      "https://thedailyq.org/wp-content/uploads/2018/02/H-Menge-Torsten-900x600.jpg",
-    department: "Computer Science",
-    aboutSection: [
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-    ],
-  },
-  {
-    title: "Biology Reseacher",
-    description: "Lorem Ipsum",
-    author: "Turner",
-    id: "u2",
-    authorProfile:
-      "https://thedailyq.org/wp-content/uploads/2018/02/H-Menge-Torsten-900x600.jpg",
-    department: "Biology",
-    aboutSection: [
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-      {
-        title: "Application Deadline",
-        description: "July 1, 2024, 12pm",
-      },
-    ],
-  },
-];
+interface JobPost {
+  title: string;
+  description: string;
+  author: string;
+  id: string;
+  authorProfile: string;
+  department: string;
+  aboutSection: Array<{
+    title: string;
+    description: string;
+  }>;
+}
 
-const IndividualPost = () => {
-  const { postID } = useParams();
+interface FetchResponse {
+  data: JobPost;
+}
 
-  var [details, setDetails] = useState("Searching");
-
-  const fetchOpportunities = async () => {
-    // Consider moving the base URL to a configuration
-    const baseURL = `${process.env.REACT_APP_BACKEND_SERVER}`;
-    const url = `${baseURL}/getOpportunity/${postID}`;
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return false;
-    }
-
-    const data = await response.json();
-    console.log(data);
-    return data["data"];
-  };
-
-  async function findDetails() {
-    var data = await fetchOpportunities();
-    details = data || "Nothing found";
-    setDetails(details);
-  }
+const IndividualPost: React.FC = () => {
+  const { postID } = useParams<{ postID: string }>();
+  const [state, setState] = useState<{
+    isLoading: boolean;
+    error: string | null;
+    data: JobPost | null;
+  }>({
+    isLoading: true,
+    error: null,
+    data: null,
+  });
 
   useEffect(() => {
-    findDetails();
-  }, []);
+    const fetchOpportunity = async () => {
+      try {
+        setState(prev => ({ ...prev, isLoading: true, error: null }));
+        
+        const baseURL = process.env.REACT_APP_BACKEND_SERVER;
+        const response = await fetch(`${baseURL}/getOpportunity/${postID}`);
 
-  return (
-    <div>
-      {details === "Searching" ? (
+        if (!response.ok) {
+          throw new Error('Failed to fetch opportunity details');
+        }
+
+        const result: FetchResponse = await response.json();
+        setState(prev => ({
+          ...prev,
+          data: result.data,
+          isLoading: false,
+        }));
+      } catch (error) {
+        setState(prev => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'An error occurred',
+          isLoading: false,
+        }));
+      }
+    };
+
+    fetchOpportunity();
+  }, [postID]);
+
+  if (state.isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[200px]">
         <span className="loading loading-spinner loading-lg" />
-      ) : details === "Nothing found" ? (
-        <p>No post found</p>
-      ) : (
-        <JobDetails {...details} />
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  if (state.error || !state.data) {
+    return (
+      <div className="flex justify-center items-center min-h-[200px]">
+        <p className="text-red-500">
+          {state.error || 'No post found'}
+        </p>
+      </div>
+    );
+  }
+
+  return <JobDetails {...state.data} />;
 };
 
 export default IndividualPost;
