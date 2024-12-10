@@ -1,66 +1,93 @@
-import React, { useEffect } from "react";
-import { useState } from "react";
-import ProfileComponents from "../components/Profile/ProfileComponents.tsx";
-import { useAuth } from "../../context/AuthContext.tsx";
-// import EditProfile from "./EditProfile";
+import React from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ProfileComponents from '../components/Profile/ProfileComponents';
+import { useAuth } from '../../context/AuthContext';
 
-export default function ProfilePage() {
+interface Profile {
+  id: string;
+  name: string;
+  image: string;
+  department: string;
+  description: string;
+  website?: string;
+}
+
+const ProfilePage: React.FC = () => {
   const { auth } = useAuth();
-
-  if (!auth.isAuthenticated) {
-    window.location.href = "/login";
-  }
-
-  // const [editMode, setEditMode] = useState(false);
-  interface Profile {
-    id: string;
-    name: string;
-    image: string;
-    department: string;
-    description: string;
-    website?: string;
-  }
-
-  const [profile, setProfile] = useState<null | Profile | boolean>(null);
-
-  // const changeEditMode = () => {
-  //   setEditMode(!editMode);
-  // };
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_SERVER}/profile`, {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
-      }
-      );
+    // Redirect if not authenticated
+    if (!auth.isAuthenticated) {
+      navigate('/login');
+      return;
+    }
 
-      if (response.ok) {
+    const fetchProfile = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(
+          `${process.env.REACT_APP_BACKEND_SERVER}/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${auth.token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+
         const data = await response.json();
-        // if (data.lab_manager) {
-        //   window.location.href = "/staff/" + data.id;
-        // }
         setProfile(data);
-      } else {
-        setProfile(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchProfile();
-  }, [auth.token]);
 
-  // const editButton = (
-  //   <button className="btn btn-primary my-3" onClick={changeEditMode}>
-  //     {editMode ? "Cancel Changes" : "Edit Profile"}
-  //   </button>
-  // );
+    fetchProfile();
+  }, [auth.isAuthenticated, auth.token, navigate]);
+
+  if (isLoading) {
+    return (
+      <section className="container-xl center">
+        <div>Loading...</div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="container-xl center">
+        <div>Error: {error}</div>
+      </section>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <section className="container-xl center">
+        <div>Profile not found</div>
+      </section>
+    );
+  }
 
   return (
-    <section className="center container-xl">
-      {profile === null && "Loading..."}
-      {profile && typeof profile === "object" && <ProfileComponents profile={profile} id={profile.id} staff={false} />}
-      {profile === false && "Profile not found"}
+    <section className="container-xl center">
+      <ProfileComponents 
+        profile={profile} 
+        id={profile.id} 
+        staff={false} 
+      />
     </section>
   );
 };
+
+export default ProfilePage;
