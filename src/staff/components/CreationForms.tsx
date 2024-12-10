@@ -1,47 +1,46 @@
-import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { useEffect } from "react";
-import CheckBox from "./Checkbox.tsx";
-import Input from "./Input";
+import React, { useState, useEffect } from "react";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { useParams } from "react-router";
-import { useAuth } from "../../context/AuthContext.tsx";
-import { Locations } from "../../shared/data/locations.ts";
-
+import { useAuth } from "../../context/AuthContext";
+import CheckBox from "./Checkbox";
+import Input from "./Input";
+import { Locations } from "../../shared/data/locations";
 
 interface CreationFormsProps {
   edit: boolean;
 }
 
-export default function CreationForms({ edit }: CreationFormsProps) {
+interface FormData {
+  id: string;
+  title: string;
+  application_due: string;
+  type: string;
+  hourlyPay: number;
+  credits: string[];
+  description: string;
+  recommended_experience: string;
+  location: string;
+  years: string[];
+}
+
+const CreationForms: React.FC<CreationFormsProps> = ({ edit }) => {
   const { auth } = useAuth();
   const { postID } = useParams();
-  const [loading, setLoading] = useState<string | boolean>(false);
-  const [compensationType, setCompensationType] = useState("For Pay"); // Manage the state for "For Pay" or "For Credit"
+  const [loading, setLoading] = useState<string | boolean>(true);
+  const [compensationType, setCompensationType] = useState("For Pay");
   const [years, setYears] = useState<string[]>([]);
-
-  async function fetchYears() {
-    const response = await fetch(`${process.env.REACT_APP_BACKEND_SERVER}/years`);
-
-    if (response.ok) {
-      const data = await response.json();
-      setYears(data);
-    } else {
-      console.log("No response for years");
-      setLoading("no response");
-    }
-  }
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm({
+  } = useForm<FormData>({
     defaultValues: {
       id: "",
       title: "",
       application_due: "",
-      type: "For Pay", // Default to "For Pay"
+      type: "For Pay",
       hourlyPay: 0,
       credits: [],
       description: "",
@@ -51,90 +50,77 @@ export default function CreationForms({ edit }: CreationFormsProps) {
     },
   });
 
-  interface FormData {
-    id: string;
-    title: string;
-    application_due: string;
-    type: string;
-    hourlyPay: number;
-    credits: string[];
-    description: string;
-    recommended_experience: string;
-    location: string;
-    years: string[];
-  }
+  const fetchYears = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_SERVER}/years`);
+      if (response.ok) {
+        const data = await response.json();
+        setYears(data);
+      } else {
+        console.error("Failed to fetch years.");
+        setLoading("no response");
+      }
+    } catch (error) {
+      console.error("Error fetching years:", error);
+      setLoading("no response");
+    }
+  };
 
-  function submitHandler(data: FormData) {
-    console.log({ ...data });
-    if (edit) {
-      fetch(`${process.env.REACT_APP_BACKEND_SERVER}/editOpportunity/${postID}`, {
-        method: "PUT",
+  const fetchEditData = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_SERVER}/editOpportunity/${postID}`, {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        reset(data);
+        setLoading(false);
+      } else {
+        console.error("Failed to fetch edit data.");
+        setLoading("no response");
+      }
+    } catch (error) {
+      console.error("Error fetching edit data:", error);
+      setLoading("no response");
+    }
+  };
+
+  const submitHandler: SubmitHandler<FormData> = async (data) => {
+    const endpoint = edit
+      ? `${process.env.REACT_APP_BACKEND_SERVER}/editOpportunity/${postID}`
+      : `${process.env.REACT_APP_BACKEND_SERVER}/createOpportunity`;
+
+    const method = edit ? "PUT" : "POST";
+    const successMessage = edit ? "Successfully updated" : "Successfully created";
+
+    try {
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${auth.token}`,
         },
-        body: JSON.stringify({ ...data }),
-      }).then((response) => {
-        if (response.ok) {
-          alert("Successfully updated");
+        body: JSON.stringify(data),
+      });
+      if (response.ok) {
+        alert(successMessage);
+        if (!edit) {
+          const responseData = await response.json();
+          window.location.href = `/opportunity/${responseData.id}`;
+        } else {
           window.location.href = `/opportunity/${postID}`;
-        } else {
-          alert("Failed to update");
         }
-      });
-    } else {
-      fetch(`${process.env.REACT_APP_BACKEND_SERVER}/createOpportunity`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({ ...data }),
-      }).then((response) => {
-        if (response.ok) {
-          alert("Successfully created");
-          response.json().then((data_response) => {
-            window.location.href = `/opportunity/${data_response["id"]}`;
-          });
-        } else {
-          alert("Failed to create");
-          console.log(response);
-        }
-      });
+      } else {
+        alert("Failed to save data.");
+      }
+    } catch (error) {
+      console.error("Error submitting data:", error);
     }
   };
 
   useEffect(() => {
-    async function fetchEditData() {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_SERVER}/editOpportunity/${postID}`, {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
-      }
-      );
-      if (response.ok) {
-        const { id, title, application_due, type, hourlyPay, credits, description, recommended_experience, location, years } = await response.json();
-        await Promise.all([fetchYears()]);
-        reset({
-          id,
-          title,
-          application_due,
-          type,
-          hourlyPay,
-          credits,
-          description,
-          recommended_experience,
-          location,
-          years,
-        });
-        setLoading(false);
-      } else {
-        console.log("No response");
-        setLoading("no response");
-      }
-    }
-
     fetchYears();
     if (edit) {
       fetchEditData();
@@ -143,182 +129,123 @@ export default function CreationForms({ edit }: CreationFormsProps) {
     }
   }, [edit, auth.token, postID, reset]);
 
-  return loading === false && years != null ? (
-    <form
-      onSubmit={handleSubmit((data) => {
-        submitHandler(data);
-      })}
-      className="form-container" // Form container for vertical layout
-    >
-      {/* Group 1: Horizontal layout for Title, Location, Due Date */}
+  if (loading === "no response") {
+    return <h1>No response from the server</h1>;
+  }
+
+  if (loading) {
+    return <h1>Loading...</h1>;
+  }
+
+  return (
+    <form onSubmit={handleSubmit(submitHandler)} className="form-container">
       <div className="horizontal-form">
         <Input
           label="Title"
-          name={"title"}
+          name="title"
           errors={errors}
-          errorMessage={"Title must be at least 5 characters"}
-          formHook={{
-            ...register("title", {
-              required: true,
-              minLength: 5,
-              maxLength: 100,
-            }),
-          }}
+          errorMessage="Title must be at least 5 characters"
+          formHook={register("title", {
+            required: true,
+            minLength: 5,
+            maxLength: 100,
+          })}
           type="text"
-          options={[]}
           placeHolder="Enter title"
         />
-
         <Input
-          errors={errors}
           label="Location"
-          name={"location"}
+          name="location"
+          errors={errors}
+          errorMessage="Location is required"
+          formHook={register("location", { required: true })}
           type="select"
           options={Locations}
-          errorMessage={"Location is required"}
-          formHook={{
-            ...register("location", {
-              required: true,
-            }),
-          }}
-          placeHolder="Select Location"
         />
-
         <Input
-          errors={errors}
           label="Due Date"
-          name={"application_due"}
-          errorMessage={"Due Date is required"}
-          formHook={{ ...register("application_due", { required: true }) }}
+          name="application_due"
+          errors={errors}
+          errorMessage="Due Date is required"
+          formHook={register("application_due", { required: true })}
           type="date"
-          placeHolder={"Select Due Date"}
-          options={[]}
         />
       </div>
 
-      {/* Compensation Type Section with Rectangular Box */}
       <div className="compensation-box">
         <label>Compensation Type</label>
-        <div className="flex items-center">
-          <input
-            type="radio"
-            value="For Pay"
-            {...register("type", { required: true })}
-            checked={compensationType === "For Pay"}
-            onChange={() => setCompensationType("For Pay")}
-          />
-          <label className="pl-2">For Pay</label>
-        </div>
-        <div className="flex items-center">
-          <input
-            type="radio"
-            value="For Credit"
-            {...register("type", { required: true })}
-            checked={compensationType === "For Credit"}
-            onChange={() => setCompensationType("For Credit")}
-          />
-          <label className="pl-2">For Credit</label>
-        </div>
-        <div className="flex items-center">
-          <input
-            type="radio"
-            value="Any"
-            {...register("type", { required: true })}
-            checked={compensationType === "Any"}
-            onChange={() => setCompensationType("Any")}
-          />
-          <label className="pl-2">Both</label>
-        </div>
+        {(["For Pay", "For Credit", "Any"] as const).map((type) => (
+          <div key={type} className="flex items-center">
+            <input
+              type="radio"
+              value={type}
+              {...register("type", { required: true })}
+              checked={compensationType === type}
+              onChange={() => setCompensationType(type)}
+            />
+            <label className="pl-2">{type}</label>
+          </div>
+        ))}
       </div>
 
-      {/* Conditionally Render Pay Input or Credit Checkboxes */}
       <div className="horizontal-form">
-        {compensationType === "For Pay" || compensationType === "Any" ? (
+        {compensationType !== "For Credit" && (
           <Input
-            errors={errors}
             label="Hourly Pay"
-            name={"hourlyPay"}
-            errorMessage={"Hourly pay must be at least 0"}
-            formHook={{
-              ...register("hourlyPay", {
-                required: compensationType === "For Pay", // Hourly pay required only if "For Pay"
-                min: 0,
-              }),
-            }}
+            name="hourlyPay"
+            errors={errors}
+            errorMessage="Hourly pay must be at least 0"
+            formHook={register("hourlyPay", {
+              required: compensationType === "For Pay",
+              min: 0,
+            })}
             type="number"
-            options={[]}
-            placeHolder="Enter hourly pay"
           />
-        ) : null}
+        )}
 
-        {compensationType === "For Credit" || compensationType === "Any" ? (
+        {compensationType !== "For Pay" && (
           <CheckBox
             label="Credits"
-            options={["1", "2", "3", "4"]} // Checkboxes for credit options
+            options={["1", "2", "3", "4"]}
             errors={errors}
-            errorMessage={"You must select at least one credit option"}
-            name={"credits"}
-            type="checkbox"
-            formHook={{
-              ...register("credits", {
-                required: compensationType === "For Credit", // Credits required only if "For Credit"
-              }),
-            }}
+            formHook={register("credits", {
+              required: compensationType === "For Credit",
+            })}
           />
-        ) : null}
+        )}
       </div>
 
-      {/* Class Year and Description aligned horizontally */}
       <div className="horizontal-form">
         <CheckBox
           label="Eligible Class Years"
-          options={years.map(String)}
+          options={years}
           errors={errors}
-          errorMessage={"At least one year must be selected"}
-          name={"years"}
-          formHook={{ ...register("years", { required: true }) }}
-          type="checkbox"
+          formHook={register("years", { required: true })}
         />
-
         <Input
-          errors={errors}
           label="Description"
-          name={"description"}
-          errorMessage="Description must be at least 10 characters"
-          formHook={{
-            ...register("description", {
-              required: true,
-              minLength: 10,
-            }),
-          }}
-          type="textarea"
-          options={[]}
-          placeHolder="Enter description"
-        />
-
-        <Input
+          name="description"
           errors={errors}
-          label="Recommended Experience"
-          name={"recommended_experience"}
-          errorMessage=""
-          formHook={{
-            ...register("recommended_experience", {
-            }),
-          }}
+          errorMessage="Description must be at least 10 characters"
+          formHook={register("description", {
+            required: true,
+            minLength: 10,
+          })}
           type="textarea"
-          options={[]}
-          placeHolder="Enter recommended experience"
+        />
+        <Input
+          label="Recommended Experience"
+          name="recommended_experience"
+          formHook={register("recommended_experience")}
+          type="textarea"
         />
       </div>
 
-      {/* Submit button */}
       <section className="pt-3 pb-5">
-        <input type="submit" className="btn btn-primary bg-blue-700 w-full" />
+        <input type="submit" className="btn btn-primary w-full" />
       </section>
     </form>
-  ) : loading === "no response" ? (
-    <h1>There was no response</h1>
-  ) : (
-    <h1>Loading...</h1>
   );
 };
+
+export default CreationForms;
